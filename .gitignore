@@ -4,6 +4,7 @@ codes.txt
 test.py
 mini-nginx/notes.txt
 mini-nginx/logs/*
+setup_project_fs.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
