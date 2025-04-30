@@ -3,8 +3,12 @@ testing_codes
 codes.txt
 test.py
 mini-nginx/notes.txt
-mini-nginx/logs/*
 setup_project_fs.sh
+
+# Ignore all files inside logs, but not the folder
+mini-nginx/logs/*
+!mini-nginx/logs/.gitkeep
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
