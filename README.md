@@ -13,81 +13,54 @@ A lightweight web server implementation inspired by Nginx, built for learning an
 
 ## Prerequisites
 
-- Linux/Unix-based operating system
-- C compiler (gcc recommended)
-- Basic understanding of networking concepts and HTTP protocol
+
 
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/mini-web-server.git
-   cd mini-web-server
+   git clone https://github.com/hackerspider09/Mini-Nginx.git
+   cd Mini-Nginx/mini-nginx
    ```
 
-2. Compile the server:
+2. Run server:
    ```bash
-   make
+   python3 main.py  
    ```
 
 ## Usage
 
-1. Start the server:
-   ```bash
-   ./server [port]
-   ```
-   If no port is specified, the server will run on the default port (8080).
 
-2. Access the server:
-   Open your web browser and navigate to `http://localhost:8080`
 
 ## Configuration
 
-The server can be configured by modifying the following settings in the configuration file:
 
-- Port number
-- Document root directory
-- Log file location
-- Maximum concurrent connections
-- Timeout settings
 
 ## Project Structure
 
 ```
-mini-web-server/
-├── src/
-│   ├── main.c
-│   ├── server.c
-│   ├── http.c
-│   └── utils.c
-├── include/
-│   ├── server.h
-│   ├── http.h
-│   └── utils.h
-├── public/
-│   └── index.html
-├── Makefile
-└── README.md
+├── mini-nginx
+│   ├── config.yaml
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── helper.py
+│   │   ├── logger.py
+│   │   ├── proxy.py
+│   │   ├── router.py
+│   │   ├── server.py
+│   │   └── worker.py
+│   ├── logs
+│   ├── main.py
+│   ├── requirements.txt
+│   └── static
+│       ├── errors
+│       │   ├── 400.html
+│       │   └── 404.html
+│       ├── index.html
+│       └── root.html
+├── README.md
+└── web_app
+    ├── socket_client.py
+    └── web_application.py
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Inspired by the Nginx web server architecture
-- Thanks to all contributors who have helped with the project
-
-## Contact
-
-Your Name - your.email@example.com
-Project Link: https://github.com/yourusername/mini-web-server 
