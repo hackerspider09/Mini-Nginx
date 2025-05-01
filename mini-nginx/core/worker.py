@@ -5,7 +5,7 @@ import selectors
 import os
 import socket
 from functools import partial
-from core.helper import parse_http_request,create_response,match_route,handle_route,handle_request
+from core.helper import create_response, handle_request,handle_proxy,cleanup_proxy
 
 sel = selectors.DefaultSelector()
 
@@ -82,7 +82,7 @@ def read_connection(conn, mask, w_data, config):
 
         if not data:
             error_print("Connection closed by client")
-            cleanup_connection(fileno)
+            cleanup_context(fileno)
             sel.unregister(conn)
             conn.close()
             return
@@ -108,7 +108,7 @@ def read_connection(conn, mask, w_data, config):
                 debug_log(f"3=> {state['buffer']}")
             else:
                 # Need more headers data
-                cleanup_connection(fileno)
+                cleanup_context(fileno)
                 sel.unregister(conn)
                 conn.close()
                 return
@@ -120,25 +120,40 @@ def read_connection(conn, mask, w_data, config):
             # Full request received
             body = state['buffer'][:state['content_length']] if state['content_length'] > 0 else b''
             full_request = state['headers_part'] + b'\r\n\r\n' + body
-            
-            response = handle_request(full_request,config)
+            response = handle_request(full_request,conn,sel,config)
 
-            try:
-                sel.unregister(conn)
-            except:
-                pass
-            
-            cleanup_connection(fileno)
-            sel.register(conn, selectors.EVENT_WRITE, partial(send_connection, w_data=w_data,response=response))
+
+            if isinstance(response,dict) and response.get('proxy'):
+                proxy_result = handle_proxy(response['host'],response['port'],full_request,conn,sel)
+
+                if proxy_result:
+                    try:
+                        # to handle erro of already register or modify selector
+                        sel.unregister(conn)
+                    except:
+                        pass
+
+                    formated_response = create_response(proxy_result)
+                    cleanup_context(fileno)
+                    sel.register(conn, selectors.EVENT_WRITE,partial(send_connection, w_data=w_data, response=formated_response))
+
+            else:
+                try:
+                    # to handle erro of already register
+                    sel.unregister(conn)
+                except:
+                    pass
+                cleanup_context(fileno)
+                sel.register(conn, selectors.EVENT_WRITE, partial(send_connection, w_data=w_data,response=response))
     except Exception as e:
         error_print(f"Error in read_connection: {e}")
-        cleanup_connection(fileno)
+        cleanup_context(fileno)
         sel.unregister(conn)
         conn.close()
         
 
 
-def cleanup_connection(fileno):
+def cleanup_context(fileno):
     """Clean up connection resources"""
     try:
         if fileno in connection_states:
@@ -176,8 +191,11 @@ def run_worker(w_data,config):
                     callback(key.fileobj, mask)
                 except Exception as e:
                     error_print(f"Error handling event: {e}")
-                    sel.unregister(key.fileobj)
-                    key.fileobj.close()
+                    try:
+                        sel.unregister(key.fileobj)
+                        key.fileobj.close()
+                    except:
+                        pass
 
 
     except KeyboardInterrupt:

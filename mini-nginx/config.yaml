@@ -3,6 +3,7 @@ port: 8080
 static_root: "static"
 log_file: "logs/access.log"
 debug: false
+worker: 2
 
 upstream:
   - mainweb:
@@ -18,10 +19,10 @@ routes:
     type: "response"
     message: "Response message: Welcome to Mini-Nginx"
 
-  - path: "/proxy"
+  - path: "/"
     type: "proxy"
-    target: "http://127.0.0.1:5000"
+    target: "127.0.0.1:5000"
 
   - path: "/upstream"
     type: "upstream"
-    upstream: "http://mainweb"
+    upstream: "mainweb"

@@ -8,7 +8,7 @@ def create_connection():
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        client_socket.connect(('127.0.0.1', 8080))
+        client_socket.connect(('127.0.0.1', '5000'))
 
         # file_data = client_socket.recv(1024 * 1024)  
         # print(f"Received data: {file_data}")
