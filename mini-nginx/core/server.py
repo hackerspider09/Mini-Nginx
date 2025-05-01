@@ -2,7 +2,7 @@ import socket
 import yaml,os,signal
 from core.config import load_config
 # from core.handler import handle_client
-from core.logger import debug_log,log_print
+from core.logger import debug_log,log_print,clear_log
 from core.worker import run_worker
 from core.helper import get_routes
 
@@ -31,10 +31,12 @@ def spawn_worker(config, w_id):
 
 def run_server():
     config = load_config()
+    clear_log()
+
     # need to add parser so config file can validate
     config['available_routes'] = get_routes(config)
 
-    print(config)
+    debug_log(config)
 
     worker_count = config.get("worker", 4)
     worker_pids = {}

@@ -2,7 +2,8 @@ import os
 import socket
 import selectors
 from functools import partial
-from core.logger import error_print
+from core.logger import error_print,log_print
+
 
 def parse_http_request(data):
     try:
@@ -174,8 +175,9 @@ def handle_route(route, path,full_request,requesting_client_conn,sel, config):
 
 def create_response(context):
     response = f"HTTP/1.1 {context['status']}\r\n"
-    response += "Content-Length: {}\r\n".format(len(context['content']))
-    response += "Content-Type: text/plain\r\n\r\n"
+    response += f"Content-Length: {len(context['content'])}\r\n"
+    # text/plain return plain text 
+    response += "Content-Type: text\r\n\r\n"
     return response.encode() + context['content'].encode()
 
 def get_default_page(status_code):
@@ -188,6 +190,9 @@ def get_default_page(status_code):
 
 def handle_request(full_request,requesting_client_conn,sel,config):
     context = parse_http_request(full_request)
+    # print log
+    log_print(f"{context['method']} {context['path']} {context['http_version']}" )
+
     # errro handle
     if context is None:
         response = {

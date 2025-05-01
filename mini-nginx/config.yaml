@@ -2,7 +2,9 @@ host: "127.0.0.1"
 port: 8080
 static_root: "static"
 log_file: "logs/access.log"
-debug: false
+debug: false  # to print deug message
+error: false  # to print error message
+clear_log : true  # clear log on fresh start
 worker: 2
 
 upstream:
@@ -21,7 +23,7 @@ routes:
 
   - path: "/"
     type: "proxy"
-    target: "127.0.0.1:5000"
+    target: "127.0.0.1:5005"
 
   - path: "/upstream"
     type: "upstream"

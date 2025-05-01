@@ -113,8 +113,8 @@ def read_connection(conn, mask, w_data, config):
             # Full request received
             body = state['buffer'][:state['content_length']] if state['content_length'] > 0 else b''
             full_request = state['headers_part'] + b'\r\n\r\n' + body
-            response = handle_request(full_request,conn,sel,config)
 
+            response = handle_request(full_request,conn,sel,config)
             if isinstance(response,dict) and response.get('proxy'):
                 proxy_result = handle_proxy(response['host'],response['port'],full_request,conn,sel)
                 if proxy_result is None:
@@ -194,3 +194,6 @@ def run_worker(w_data,config):
         print("Caught keyboard interrupt, exiting")
     finally:
         sel.close()
+
+
+        
