@@ -42,11 +42,9 @@ def handle_proxy(host,port,request_data,requesting_client,sel):
     try:
         upstream_sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         upstream_sock.setblocking(False)
+        upstream_sock.connect_ex((host,int(port)))
 
-        try:
-            upstream_sock.connect_ex((host,int(port)))
-        except:
-            pass
+
         proxy_state = {
             'stage':'connecting',
             'upstream':upstream_sock,
@@ -55,67 +53,58 @@ def handle_proxy(host,port,request_data,requesting_client,sel):
             # request data is full request string from client 
             'upstream_data':request_data
         }
-        sel.register(upstream_sock,selectors.EVENT_WRITE,partial(handle_proxy_request, state=proxy_state, sel=sel))
+        sel.register(upstream_sock,selectors.EVENT_WRITE,partial(proxy_send_request, state=proxy_state, sel=sel))
         return None
     
     except Exception as e:
         error_print(f"Proxy setup failed: {e}")
         return {
-            'content': "502 Bad Gateway",
+            'content': "Upstream error",
             'status': "502 Bad Gateway"
         }
     
-def handle_proxy_request(upstream_conn, mask, state, sel):
+def proxy_send_request(upstream_conn, mask, state, sel):
     try:
-        if state['stage'] == 'connecting':
-            if mask & selectors.EVENT_WRITE:
-                # Connection established
-                state['stage'] = 'forwarding'
-                sel.modify(upstream_conn, selectors.EVENT_WRITE, 
-                         partial(handle_proxy_request, state=state, sel=sel))
-                
-        elif state['stage'] == 'forwarding':
-            if mask & selectors.EVENT_WRITE and state['upstream_data']:
-                # Forward client request to upstream
-                # this will send data in packet or fully
-                sent = upstream_conn.send(state['upstream_data'])
-                state['upstream_data'] = state['upstream_data'][sent:]
-                
-                if not state['upstream_data']:
-                    # Switch to reading response
-                    sel.modify(upstream_conn, selectors.EVENT_READ,
-                             partial(handle_proxy_request, state=state, sel=sel))
-            
-            elif mask & selectors.EVENT_READ:
-                # Receive upstream response
-                data = upstream_conn.recv(4096)
-                if data:
-                    state['upstream_response'] += data
-                    sel.modify(state['requesting_client'], selectors.EVENT_WRITE,
-                             partial(send_proxy_response, state=state, sel=sel))
-                else:
-                    # Upstream closed connection
-                    cleanup_proxy(state, sel)
-                    
+        if mask & selectors.EVENT_WRITE:
+            sent = upstream_conn.send(state['upstream_data'])
+            state['upstream_data'] = state['upstream_data'][sent:]
+            if not state['upstream_data']:
+                sel.modify(upstream_conn, selectors.EVENT_READ, partial(proxy_read_response, state=state, sel=sel))
     except Exception as e:
-        error_print(f"Upstream error: {e}")
-        cleanup_proxy(state, sel)
+        error_print(f"Proxy send error: {e}")
+        send_error_and_cleanup(state, sel)
 
-def send_proxy_response(client_conn,mask,state,sel):
-    """Send proxied response to client"""
+def proxy_read_response(upstream_conn, mask, state, sel):
     try:
-        if mask & selectors.EVENT_WRITE and state['upstream_response']:
+        data = upstream_conn.recv(4096)
+        if data:
+            state['upstream_response'] += data
+        else:
+            sel.modify(state['requesting_client'], selectors.EVENT_WRITE, partial(proxy_send_to_client, state=state, sel=sel))
+            sel.unregister(upstream_conn)
+            upstream_conn.close()
+    except Exception as e:
+        error_print(f"Proxy read error: {e}")
+        send_error_and_cleanup(state, sel)
+
+def proxy_send_to_client(client_conn, mask, state, sel):
+    try:
+        if mask & selectors.EVENT_WRITE:
             sent = client_conn.send(state['upstream_response'])
             state['upstream_response'] = state['upstream_response'][sent:]
-            
             if not state['upstream_response']:
-                # Switch back to reading from upstream
-                sel.modify(state['upstream'], selectors.EVENT_READ,
-                         partial(handle_proxy_request, state=state, sel=sel))
-                
+                sel.unregister(client_conn)
+                client_conn.close()
     except Exception as e:
-        error_print(f"Client send error: {e}")
+        error_print(f"Send to client error: {e}")
         cleanup_proxy(state, sel)
+
+def send_error_and_cleanup(state, sel):
+    err = create_response({'status': '502 Bad Gateway', 'content': 'Upstream error'})
+    try:
+        state['requesting_client'].sendall(err)
+    except: pass
+    cleanup_proxy(state, sel)
 
 def cleanup_proxy(state, sel):
     """Clean up proxy resources"""
@@ -125,8 +114,8 @@ def cleanup_proxy(state, sel):
     except:
         pass
     try:
-        sel.unregister(state['client'])
-        state['client'].close()
+        sel.unregister(state['requesting_client'])
+        state['requesting_client'].close()
     except:
         pass
     
@@ -184,10 +173,9 @@ def handle_route(route, path,full_request,requesting_client_conn,sel, config):
 
 
 def create_response(context):
-    response = f"HTTP/1.1 {context['status']}\n"
-    response += "Content-Length: {}\n".format(len(context['content']))
-    response += "Content-Type: text\n"
-    response += "\n"
+    response = f"HTTP/1.1 {context['status']}\r\n"
+    response += "Content-Length: {}\r\n".format(len(context['content']))
+    response += "Content-Type: text/plain\r\n\r\n"
     return response.encode() + context['content'].encode()
 
 def get_default_page(status_code):

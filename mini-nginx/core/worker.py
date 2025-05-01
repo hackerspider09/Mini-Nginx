@@ -17,9 +17,6 @@ def accept_connection(socket_obj, mask,w_data,config):
 
             conn.setblocking(False)
             sel.register(conn, selectors.EVENT_READ, partial(read_connection, w_data=w_data,config=config))
-        except BlockingIOError:
-            # Another event might have stolen the accept — ignore and return
-            return
         except Exception as e:
             error_print(f"Error accepting connection: {e}")
             try:
@@ -55,23 +52,23 @@ def send_connection(conn,mask,w_data,response):
 connection_states = {}
 
 def read_connection(conn, mask, w_data, config):
+    
+    # Get connection state or initialize
+    fileno = conn.fileno()
+    if fileno not in connection_states:
+        connection_states[fileno] = {
+            'buffer': b'',
+            'headers_complete': False,
+            'content_length': 0,
+            'headers_part': b'',
+            'conn': conn  # Keep reference to connection
+        }
+    
+    state = connection_states[fileno]
+    
     try:
-        # Get connection state or initialize
-        fileno = conn.fileno()
-        if fileno not in connection_states:
-            connection_states[fileno] = {
-                'buffer': b'',
-                'headers_complete': False,
-                'content_length': 0,
-                'headers_part': b'',
-                'conn': conn  # Keep reference to connection
-            }
-        
-        state = connection_states[fileno]
-        
         # Read available data
-        data = conn.recv(4096)
-
+        data = conn.recv(1024*4)
         '''uncomment print statement you will notice some unusual behavior
         this happens due to event loop (as client send data in packats not all data present in same packat so we have to get all data in diff event loop
         and to get its state we use global var to store its status)
@@ -79,7 +76,6 @@ def read_connection(conn, mask, w_data, config):
         thats logic is there like if header part is complete make it true so in next loop we will avoid preosesing header and we know that we processed header so it must be body'''
         debug_log(f"0=> {data}")
         debug_log(f"1=> {state['buffer']}")
-
         if not data:
             error_print("Connection closed by client")
             cleanup_context(fileno)
@@ -88,9 +84,7 @@ def read_connection(conn, mask, w_data, config):
             return
             
         state['buffer'] += data
-
         debug_log(f"2=> {state['buffer']}")
-
         # Check for complete headers
         if not state['headers_complete']:
             if b'\r\n\r\n' in state['buffer']:
@@ -104,7 +98,6 @@ def read_connection(conn, mask, w_data, config):
                 
                 state['headers_complete'] = True
                 state['buffer'] = body_part
-
                 debug_log(f"3=> {state['buffer']}")
             else:
                 # Need more headers data
@@ -122,21 +115,19 @@ def read_connection(conn, mask, w_data, config):
             full_request = state['headers_part'] + b'\r\n\r\n' + body
             response = handle_request(full_request,conn,sel,config)
 
-
             if isinstance(response,dict) and response.get('proxy'):
                 proxy_result = handle_proxy(response['host'],response['port'],full_request,conn,sel)
-
-                if proxy_result:
+                if proxy_result is None:
+                    cleanup_context(fileno)
+                    return
+                else:
                     try:
                         # to handle erro of already register or modify selector
                         sel.unregister(conn)
                     except:
                         pass
-
                     formated_response = create_response(proxy_result)
-                    cleanup_context(fileno)
                     sel.register(conn, selectors.EVENT_WRITE,partial(send_connection, w_data=w_data, response=formated_response))
-
             else:
                 try:
                     # to handle erro of already register
@@ -145,10 +136,12 @@ def read_connection(conn, mask, w_data, config):
                     pass
                 cleanup_context(fileno)
                 sel.register(conn, selectors.EVENT_WRITE, partial(send_connection, w_data=w_data,response=response))
+
     except Exception as e:
         error_print(f"Error in read_connection: {e}")
         cleanup_context(fileno)
-        sel.unregister(conn)
+        try:sel.unregister(conn)
+        except:pass
         conn.close()
         
 
@@ -184,18 +177,17 @@ def run_worker(w_data,config):
     log_print(f"Mini-Nginx running on Worker{w_data['w_id']} PID: {w_data['w_pid']} -> {host}:{port}")
     try:
         while True:
-            events = sel.select(timeout=1)
+            events = sel.select(timeout=None)
             for key, mask in events:
                 callback = key.data
                 try:
                     callback(key.fileobj, mask)
                 except Exception as e:
-                    error_print(f"Error handling event: {e}")
-                    try:
-                        sel.unregister(key.fileobj)
-                        key.fileobj.close()
-                    except:
-                        pass
+                    # error_print(f"Error handling event: {e}")
+
+                    try:sel.unregister(key.fileobj)
+                    except:pass
+                    key.fileobj.close()
 
 
     except KeyboardInterrupt:
