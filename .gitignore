@@ -5,7 +5,7 @@ mini-nginx/notes.txt
 setup_project_fs.sh
 
 web_app/*
-!web_app/
+!web_app/.gitkeep
 
 # Ignore all files inside logs, but not the folder
 mini-nginx/logs/*
