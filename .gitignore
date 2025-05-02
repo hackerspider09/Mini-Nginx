@@ -3,9 +3,9 @@ testing_codes
 codes.txt
 mini-nginx/notes.txt
 setup_project_fs.sh
-web_app/multi_worker_backend.py
-web_app/socket_client.py
-web_app/socket_conn_domain.py
+
+web_app/*
+!web_app/.gitkeep
 
 # Ignore all files inside logs, but not the folder
 mini-nginx/logs/*
