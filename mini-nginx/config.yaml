@@ -5,7 +5,7 @@ log_file: "logs/access.log"
 debug: false  # to print deug message
 error: false  # to print error message
 clear_log : true  # clear log on fresh start
-worker: 2
+worker: 4
 
 upstream:
   - mainweb:
@@ -23,7 +23,7 @@ routes:
 
   - path: "/"
     type: "proxy"
-    target: "127.0.0.1:5005"
+    target: "127.0.0.1:5000"
 
   - path: "/upstream"
     type: "upstream"

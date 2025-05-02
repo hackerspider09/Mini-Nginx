@@ -30,6 +30,8 @@ def spawn_worker(config, w_id):
 
 
 def run_server():
+    print("Mini Nginx Started...")
+    
     config = load_config()
     clear_log()
 
@@ -66,11 +68,11 @@ def run_server():
             # No child processes left — shouldn't happen in normal cases
             break
         except KeyboardInterrupt:
-            log_print("Shutting down master and workers...")
+            print("Shutting down master and workers...")
 
             for pid,w_data in worker_pids.items():
                 debug_log(f"Stopping Worker{w_data['w_id']} PID: {pid}")
                 os.kill(pid, signal.SIGTERM)
             break
 
-    log_print(f"Mini Nginx Stopped...")
+    print(f"Mini Nginx Stopped...")

@@ -23,15 +23,32 @@ def parse_http_request(data):
         return None
 
 def get_routes(config):
-    routes = {}
+    available_routes = {}
 
-    for route in config.get('routes'):
-        routes[route['path']]=route
-    return routes
+    routes = config.get('routes',{})
+
+    if routes is None:
+        available_routes['/'] = {'path': '/', 'type': 'static', 'file': 'root.html'}
+        config['welcome_page'] = True  # mini nginx is setup freshly so if no route is present show welcome page
+        return available_routes
+
+    for route in routes:
+        available_routes[route['path']]=route
+    return available_routes
+
+    # 1st method
+    # routes = {}
+
+    # for route in config.get('routes'):
+    #     routes[route['path']]=route
+    # return routes
     
 def match_route(path, config):
     # Sort keys by descending length
     sorted_routes = sorted(config['available_routes'].keys(), key=len, reverse=True)
+
+    if config.get('welcome_page',False):
+        return config['available_routes']['/'],'/'
 
     for route_path in sorted_routes:
         if path.startswith(route_path):
